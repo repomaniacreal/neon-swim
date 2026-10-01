@@ -133,6 +133,7 @@ let fish, walls, pellets, powers, parts, popups, bubbles, plankton, corals;
 let scrollX = 0, speed = 170, holding = false;
 let shield = false, slowT = 0, magnetT = 0, invulnT = 0;
 let streak = 0, pelletT = 0, powerT = 8, time = 0, shake = 0, newBest = false;
+let countT = 0, lastCount = 4;
 
 function reset() {
   fish = { x: 140, y: H / 2, vy: 0, r: 15, rot: 0 };
@@ -145,9 +146,21 @@ function reset() {
   updateHUD();
 }
 function startGame() {
-  audio(); reset(); state = 'playing';
+  audio(); reset();
+  state = 'countdown'; countT = 3.6; lastCount = 4; holding = false;
   document.getElementById('overPop').style.display = 'none';
   sfx.start();
+}
+function updateCountdown(dt) {
+  time += dt;
+  countT -= dt;
+  const n = countT > 0.6 ? Math.ceil(countT - 0.6) : 0;
+  if (n !== lastCount) {
+    lastCount = n;
+    if (n > 0) tone(440 + (3 - n) * 110, 0.12, 'square', 0.12);
+    else tone(880, 0.3, 'square', 0.14);
+  }
+  if (countT <= 0) { state = 'playing'; lastCount = 4; }
 }
 function updateHUD() {
   document.getElementById('score').textContent = Math.floor(score);
@@ -509,6 +522,21 @@ function render() {
       ctx.fillText('— TAP TO RESUME —', W / 2, H / 2 - 40);
     }
   }
+
+  if (state === 'countdown') {
+    const n = countT > 0.6 ? Math.ceil(countT - 0.6) : 0;
+    ctx.fillStyle = 'rgba(4,8,18,.45)'; ctx.fillRect(-20, -20, W + 40, H + 40);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 84px Trebuchet MS';
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#35e0ff'; ctx.shadowBlur = 24;
+    const pulse = 1 + 0.08 * Math.sin(time * 12);
+    ctx.save();
+    ctx.translate(W / 2, H / 2 - 40); ctx.scale(pulse, pulse);
+    ctx.fillText(n > 0 ? String(n) : 'GO!', 0, 0);
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  }
   ctx.restore();
 }
 
@@ -518,6 +546,7 @@ function frame(t) {
   const dt = Math.min(0.05, (t - last) / 1000 || 0.016);
   last = t;
   if (state === 'playing') update(dt);
+  else if (state === 'countdown') updateCountdown(dt);
   else time += dt;
   render();
   requestAnimationFrame(frame);
